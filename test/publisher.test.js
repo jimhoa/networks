@@ -1,0 +1,6 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {publishPost} from '../publisher.js';
+for(const author of ['urn:li:person:abc','urn:li:organization:123'])test(`Official payload for ${author}`,async()=>{let calls=0;const result=await publishPost({author,text:'Mon texte personnel',token:'test-only',version:'202610'},async(url,opts)=>{calls++;assert.equal(url,'https://api.linkedin.com/rest/posts');const b=JSON.parse(opts.body);assert.equal(b.author,author);assert.equal(b.commentary,'Mon texte personnel');assert.equal(b.lifecycleState,'PUBLISHED');assert.equal(opts.headers.Authorization,'Bearer test-only');return new Response(null,{status:201,headers:{'x-restli-id':'urn:li:share:123'}});});assert.equal(calls,1);assert.equal(result,'urn:li:share:123');});
+test('A refusal never causes an automatic retry',async()=>{let calls=0;await assert.rejects(()=>publishPost({author:'urn:li:person:abc',text:'Texte',token:'test',version:'202610'},async()=>{calls++;return new Response(null,{status:403});}),/HTTP 403/);assert.equal(calls,1);});
+test('Invalid author and empty text never reach LinkedIn',async()=>{for(const input of [{author:'bad',text:'Hello'},{author:'urn:li:person:abc',text:' '}])await assert.rejects(()=>publishPost({...input,token:'test',version:'202610'},()=>{assert.fail('Unexpected request');}));});
